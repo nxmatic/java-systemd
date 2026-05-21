@@ -11,6 +11,7 @@
 
 package de.thjom.java.systemd;
 
+import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
@@ -51,10 +52,14 @@ abstract class AbstractTestCase {
         MockitoAnnotations.openMocks(this);
 
         try {
+            Field dbusField = Systemd.class.getDeclaredField("dbus");
+            dbusField.setAccessible(true);
+            dbusField.set(systemd, dbus);
+
             Mockito.when(dbus.getRemoteObject(Systemd.SERVICE_NAME, Systemd.OBJECT_PATH, ManagerInterface.class)).thenReturn(miface);
             Mockito.when(dbus.getRemoteObject(Mockito.eq(Systemd.SERVICE_NAME), Mockito.anyString(), Mockito.eq(PropertyInterface.class))).thenReturn(piface);
         }
-        catch (DBusException e) {
+        catch (DBusException | ReflectiveOperationException e) {
             Assert.fail(e.getMessage(), e);
         }
     }

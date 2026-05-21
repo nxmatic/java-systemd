@@ -15,13 +15,14 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Arrays;
+import java.util.HexFormat;
 import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import javax.xml.bind.DatatypeConverter;
 
 import org.freedesktop.dbus.connections.impl.DBusConnection;
 import org.freedesktop.dbus.connections.impl.DBusConnection.DBusBusType;
+import org.freedesktop.dbus.connections.impl.DBusConnectionBuilder;
 import org.freedesktop.dbus.exceptions.DBusException;
 import org.freedesktop.dbus.exceptions.NotConnected;
 import org.slf4j.Logger;
@@ -98,7 +99,7 @@ public final class Systemd {
     }
 
     public static String id128ToString(final byte[] id128) {
-        return DatatypeConverter.printHexBinary(id128).toLowerCase();
+        return HexFormat.of().formatHex(id128);
     }
 
     public static Systemd get() throws DBusException {
@@ -161,8 +162,11 @@ public final class Systemd {
         }
 
         try {
-            dbus = DBusConnection.getConnection(instanceType.getIndex());
-            dbus.changeThreadCount(DEFAULT_THREAD_POOL_SIZE);
+            dbus = DBusConnectionBuilder.forType(instanceType.getIndex())
+                    .receivingThreadConfig()
+                        .withSignalThreadCount(DEFAULT_THREAD_POOL_SIZE)
+                    .connectionConfig()
+                    .build();
         }
         catch (final DBusException e) {
             LOG.error(String.format("Unable to connect to %s bus", instanceType), e);
