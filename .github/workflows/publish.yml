@@ -1,0 +1,56 @@
+name: publish
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  publish:
+    name: Deploy to GitHub Packages and draft release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+    steps:
+      - name: Repository checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: JDK setup
+        uses: actions/setup-java@v4
+        with:
+          java-version: '25'
+          distribution: 'temurin'
+          cache: 'maven'
+          server-id: github
+          server-username: GITHUB_ACTOR
+          server-password: GITHUB_TOKEN
+
+      - name: Verify tag matches pom version
+        run: |
+          tag="${GITHUB_REF#refs/tags/v}"
+          pom_version=$(./mvnw -B -ntp -q help:evaluate -Dexpression=project.version -DforceStdout)
+          if [ "$tag" != "$pom_version" ]; then
+            echo "Tag v$tag does not match pom version $pom_version" >&2
+            exit 1
+          fi
+
+      - name: Deploy to GitHub Packages
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: ./mvnw --batch-mode --no-transfer-progress -Pgh-packages -DskipTests=false deploy
+
+      - name: Collect release artifacts
+        run: |
+          mkdir -p release-artifacts
+          cp target/*.jar release-artifacts/
+
+      - name: Draft GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          draft: true
+          prerelease: true
+          generate_release_notes: true
+          files: release-artifacts/*.jar
