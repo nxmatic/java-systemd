@@ -64,19 +64,13 @@ public final class Systemd {
     private static final Systemd[] INSTANCES = new Systemd[InstanceType.values().length];
 
     private final InstanceType instanceType;
-    private final boolean ownsConnection;
 
     private DBusConnection dbus;
     private Manager manager;
+    private boolean ownsConnection = true;
 
     private Systemd(final InstanceType instanceType) {
-        this(instanceType, null, true);
-    }
-
-    private Systemd(final InstanceType instanceType, final DBusConnection dbus, final boolean ownsConnection) {
         this.instanceType = instanceType;
-        this.dbus = dbus;
-        this.ownsConnection = ownsConnection;
     }
 
     public static String escapePath(final CharSequence path) {
@@ -145,7 +139,11 @@ public final class Systemd {
             throw new IllegalArgumentException("dbus must not be null");
         }
 
-        return new Systemd(instanceType, dbus, false);
+        Systemd instance = new Systemd(instanceType);
+        instance.dbus = dbus;
+        instance.ownsConnection = false;
+
+        return instance;
     }
 
     public static void disconnect() {

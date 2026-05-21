@@ -18,6 +18,7 @@ import java.time.temporal.ChronoUnit;
 import org.freedesktop.dbus.connections.impl.DBusConnection;
 import org.freedesktop.dbus.connections.impl.DBusConnectionBuilder;
 import org.freedesktop.dbus.exceptions.DBusException;
+import org.mockito.Mockito;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
@@ -254,14 +255,9 @@ public class SystemdTest {
     }
 
     @Test(description="Tests 'fromConnection' rejects a null instance type.", expectedExceptions={ IllegalArgumentException.class })
-    public void testFromConnectionRejectsNullInstanceType() throws DBusException {
-        DBusConnection dbus = DBusConnectionBuilder.forType(InstanceType.SYSTEM.getIndex()).build();
-        try {
-            Systemd.fromConnection(null, dbus);
-        }
-        finally {
-            dbus.disconnect();
-        }
+    public void testFromConnectionRejectsNullInstanceType() {
+        DBusConnection dbus = Mockito.mock(DBusConnection.class);
+        Systemd.fromConnection(null, dbus);
     }
 
     @Test(groups="requireSystemd", description="Tests that 'fromConnection' wraps a caller-supplied bus and does not own its lifecycle.")
