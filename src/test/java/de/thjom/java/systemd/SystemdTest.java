@@ -15,6 +15,8 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 
+import org.freedesktop.dbus.connections.impl.DBusConnection;
+import org.freedesktop.dbus.connections.impl.DBusConnectionBuilder;
 import org.freedesktop.dbus.exceptions.DBusException;
 import org.testng.Assert;
 import org.testng.annotations.Test;
@@ -244,6 +246,55 @@ public class SystemdTest {
         Systemd.disconnect(InstanceType.USER);
 
         instance.getManager();
+    }
+
+    @Test(description="Tests 'fromConnection' rejects a null connection.", expectedExceptions={ IllegalArgumentException.class })
+    public void testFromConnectionRejectsNullConnection() {
+        Systemd.fromConnection(null);
+    }
+
+    @Test(description="Tests 'fromConnection' rejects a null instance type.", expectedExceptions={ IllegalArgumentException.class })
+    public void testFromConnectionRejectsNullInstanceType() throws DBusException {
+        DBusConnection dbus = DBusConnectionBuilder.forType(InstanceType.SYSTEM.getIndex()).build();
+        try {
+            Systemd.fromConnection(null, dbus);
+        }
+        finally {
+            dbus.disconnect();
+        }
+    }
+
+    @Test(groups="requireSystemd", description="Tests that 'fromConnection' wraps a caller-supplied bus and does not own its lifecycle.")
+    public void testFromConnectionPreservesCallerOwnership() throws DBusException {
+        DBusConnection dbus = DBusConnectionBuilder.forType(InstanceType.SYSTEM.getIndex()).build();
+        try {
+            Systemd wrapped = Systemd.fromConnection(dbus);
+            Assert.assertTrue(wrapped.isConnected());
+            Assert.assertNotNull(wrapped.getManager());
+
+            // disconnectAll() must NOT touch a caller-owned bus
+            Systemd.disconnectAll();
+            Assert.assertTrue(wrapped.isConnected(),
+                    "disconnectAll() must leave a caller-supplied connection alive");
+        }
+        finally {
+            dbus.disconnect();
+        }
+    }
+
+    @Test(groups="requireSystemd", description="Tests that 'fromConnection' instances bypass the singleton cache.")
+    public void testFromConnectionBypassesCache() throws DBusException {
+        DBusConnection dbus = DBusConnectionBuilder.forType(InstanceType.SYSTEM.getIndex()).build();
+        try {
+            Systemd wrapped = Systemd.fromConnection(dbus);
+            Systemd cached = Systemd.get();
+            Assert.assertNotSame(wrapped, cached,
+                    "fromConnection() must not be reachable via the cached get() singleton");
+        }
+        finally {
+            Systemd.disconnect();
+            dbus.disconnect();
+        }
     }
 
 }
