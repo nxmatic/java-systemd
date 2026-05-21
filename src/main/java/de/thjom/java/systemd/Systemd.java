@@ -64,12 +64,19 @@ public final class Systemd {
     private static final Systemd[] INSTANCES = new Systemd[InstanceType.values().length];
 
     private final InstanceType instanceType;
+    private final boolean ownsConnection;
 
     private DBusConnection dbus;
     private Manager manager;
 
     private Systemd(final InstanceType instanceType) {
+        this(instanceType, null, true);
+    }
+
+    private Systemd(final InstanceType instanceType, final DBusConnection dbus, final boolean ownsConnection) {
         this.instanceType = instanceType;
+        this.dbus = dbus;
+        this.ownsConnection = ownsConnection;
     }
 
     public static String escapePath(final CharSequence path) {
@@ -126,6 +133,21 @@ public final class Systemd {
         return instance;
     }
 
+    public static Systemd fromConnection(final DBusConnection dbus) {
+        return fromConnection(InstanceType.SYSTEM, dbus);
+    }
+
+    public static Systemd fromConnection(final InstanceType instanceType, final DBusConnection dbus) {
+        if (instanceType == null) {
+            throw new IllegalArgumentException("instanceType must not be null");
+        }
+        if (dbus == null) {
+            throw new IllegalArgumentException("dbus must not be null");
+        }
+
+        return new Systemd(instanceType, dbus, false);
+    }
+
     public static void disconnect() {
         disconnect(InstanceType.SYSTEM);
     }
@@ -176,7 +198,7 @@ public final class Systemd {
     }
 
     private void close() {
-        if (isConnected()) {
+        if (ownsConnection && isConnected()) {
             if (LOG.isDebugEnabled()) {
                 LOG.debug(String.format("Disconnecting from %s bus", instanceType));
             }
